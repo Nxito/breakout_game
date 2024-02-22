@@ -29,7 +29,7 @@
     let counter = 0
     let reloadFix = false
 
-    /* Variables de la bola */
+    /* VARIABLES DE LA BOLA */
     const ballRadius = 5;
     //Posicion de la bola
     let x = canvas.width / 2;
@@ -38,7 +38,7 @@
     let dx = 1;
     let dy = -1;//negativo arriva, positivo abajo
 
-     /* Variables de la paleta */
+     /* VARIABLES DE LA PALETA */
     const paddleHeight = 10;
     const paddleWidth = 50;
 
@@ -49,6 +49,43 @@
     let leftPressed = false
 
     let paddleSensitibity = 3
+
+    /* VARIABLES DE LOS LADRILLOS */
+    const brickRowCount = 1;
+    const brickColumnCount = 1;
+    const brickWidth = 30;
+    const brickHeight = 14;
+    const brickPadding = 2;
+    const BrickOffsetTop = 80;
+    const BrickOffsetLeft = 16;
+    const bricks = []
+
+    const brickStatus = {
+        ACTIVE:1, 
+        DESTROYED:0
+    }
+
+    for(let c = 0; c < brickColumnCount; c++){
+        bricks[c]= []
+        for (let r = 0; r < brickRowCount; r++) {
+            //calcula la posicion del ladrillo en pantalla
+            const brickX = c * (brickWidth + brickPadding)+ 
+            BrickOffsetLeft
+            const brickY = r * (brickHeight + brickPadding)+ 
+            BrickOffsetTop
+            //Asignar color aleatorio al ladrillo
+            const random = Math.floor(Math.random() * 8)
+            // guardamos la info de cala ladrillo
+            bricks[c][r]= {
+                x: brickX,
+                y: brickY, 
+                status: brickStatus.ACTIVE,
+                color: random
+            }
+
+            
+        }
+    }
 
 
     function drawBall() {
@@ -67,23 +104,77 @@
         //     paddleHeight    //alto
         // )
         ctx.drawImage(
-            $sprite,
-            29,
-            174,
-            paddleWidth,
-            paddleHeight,
-            paddleX,
-            paddleY,
-            paddleWidth,
-            paddleHeight,
+            $sprite,        //imagen
+            29,             //clipX: coords de recorte
+            174,            //clipY: coords de recorte
+            paddleWidth,    //Tamaño del recorte
+            paddleHeight,   //Tamaño del recorte
+            paddleX,        //posicion x del dibujo
+            paddleY,        //posicion y del dibujo
+            paddleWidth,    //ancho x del dibujo
+            paddleHeight,   //alto y del dibujo
 
         )
     }
     function drawBricks() {
+        for(let c = 0; c < brickColumnCount; c++){
+            for (let r = 0; r < brickRowCount; r++) {
+                const currentBrick =  bricks[c][r]
+                if(currentBrick.status == brickStatus.DESTROYED){
+                    continue;
+                }
+                
+                
+                // ctx.fillStyle = "yellow"
+                ctx.rect(
+                    currentBrick.x,
+                    currentBrick.y,
+                    brickWidth,
+                    brickHeight
+                )
+                ctx.stroke()
+                // ctx.fill()
 
+                const clipX = 30 + (currentBrick.color * 16) 
+                // 16 es el tamaño de ancho del sprite
+                // y 30 el ancho hasta el primer elemento
+                
+                ctx.drawImage(
+                    $sprite,
+                    clipX,
+                    83,
+                    15,
+                    7,
+                    currentBrick.x,
+                    currentBrick.y,
+                    brickWidth,
+                    brickHeight
+                )
+            }
+        }
     }
     function collisionDetection() {
+        for(let c = 0; c < brickColumnCount; c++){
+            for (let r = 0; r < brickRowCount; r++) {
+                const currentBrick =  bricks[c][r]
+                if(currentBrick.status == brickStatus.DESTROYED){
+                    continue;
+                }
 
+                const isBallSameXAsBrick = 
+                    x>currentBrick.x && 
+                    x<currentBrick.x+brickWidth
+
+                const isBallSameYAsBrick = 
+                    y>currentBrick.y && 
+                    y<currentBrick.y+brickHeight
+
+                if (isBallSameXAsBrick && isBallSameYAsBrick) {
+                    dy = -dy;
+                    currentBrick.status = brickStatus.DESTROYED
+                }
+            }
+        }
     }
     function ballMovement() {
         //rebotar bola en laterales
@@ -168,6 +259,10 @@
         paddleMovement()
         console.log("hola");
         if (reloadFix){return}
+        if(bricks.filter(b=>b.find(f=>f.status == brickStatus.ACTIVE)  ).length == 0){
+            console.log("WIN!!!!!")
+            return;
+        }
         window.requestAnimationFrame(draw)
     }
     draw()
