@@ -1,272 +1,319 @@
 <title>Breakout en JS</title>
 
 <style>
-    body {
-        background-color: #111;
-    }
+  body {
+    background-color: #111;
+  }
 
-    canvas {
-        border: 4px solid #fff;
-        border-bottom: transparent;
-        /* background: #000; */
-        background: url("/assets/bkg.png") no-repeat fixed center;
-        margin: 0 auto;
-        display: block;
-    }
+  canvas {
+    border: 4px solid #fff;
+    border-bottom: transparent;
+    /* background: #000; */
+    background: url("/assets/bkg.png") no-repeat fixed center;
+    margin: 0 auto;
+    display: block;
+  }
+  #gamePopup {
+    border: 2px solid red;
+    padding: 5px;
+    background-color: #fff;
+    width: 300px;
+    position: absolute;
+    margin-left: auto;
+    margin-right: auto;
+    left: 0;
+    right: 0;
+    top: 150px;
+    text-align: center;
+  }
+  #gameScores {
+    border: 4px solid #FFF;
+    padding: 1px; 
+    background-color: #161616;
+    color: #fff;
+    width: 448;
+    height: 100px;
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+  }
 </style>
-<img hidden id="sprites" src="/assets/sprites.png" alt="sprite arkanoid">
+<img hidden id="sprites" src="/assets/sprites.png" alt="sprite arkanoid" />
 
+<section id="gamePopup">
+  <h2>Iniciar Juego</h2>
+  <button onclick="startGame()">Start</button>
+</section>
+<section id="gameScores">
+    <h1>Puntuaciones</h1>
+    <div>
+        <span>Score: </span>
+        <span id="score">0</span>
+        <span>pts</span>
+    </div>
+</section>
 <canvas></canvas>
 
 <script>
-    const canvas = document.querySelector("canvas")
-    const ctx = canvas.getContext("2d")
+  const canvas = document.querySelector("canvas");
+  const ctx = canvas.getContext("2d");
 
-    const $sprite = document.getElementById("sprites")
-    canvas.width = 448
-    canvas.height = 400
+  const $sprite = document.getElementById("sprites");
+  canvas.width = 448;
+  canvas.height = 400;
 
-    let counter = 0
-    let reloadFix = false
+  let counter = 0; 
 
-    /* VARIABLES DE LA BOLA */
-    const ballRadius = 5;
-    //Posicion de la bola
-    let x = canvas.width / 2;
-    let y = canvas.height - 30 - ballRadius;
-    //Velocidad de la bola
-    let dx = 1;
-    let dy = -1;//negativo arriva, positivo abajo
+  /* variables del juego*/
+  let pausedGame = false;
 
-     /* VARIABLES DE LA PALETA */
-    const paddleHeight = 10;
-    const paddleWidth = 50;
+  /* VARIABLES DE LA BOLA */
+  const ballRadius = 5;
+  //Posicion de la bola
+  let x = canvas.width / 2;
+  let y = canvas.height - 30 - ballRadius;
+  //Velocidad de la bola
+  const ballspeed = 1;
+  let dx = ballspeed;
+  let dy = -ballspeed; //negativo arriva, positivo abajo
 
-    let paddleX = (canvas.width - paddleWidth) / 2
-    let paddleY = (canvas.height - paddleHeight - 10 )
+  /* VARIABLES DE LA PALETA */
+  const paddleHeight = 10;
+  const paddleWidth = 50;
 
-    let rightPressed = false
-    let leftPressed = false
+  let paddleX = (canvas.width - paddleWidth) / 2;
+  let paddleY = canvas.height - paddleHeight - 10;
 
-    let paddleSensitibity = 3
+  let rightPressed = false;
+  let leftPressed = false;
 
-    /* VARIABLES DE LOS LADRILLOS */
-    const brickRowCount = 3;
-    const brickColumnCount = 12;
-    const brickWidth = 30;
-    const brickHeight = 14;
-    const brickPadding = 6;
-    const BrickOffsetTop = 80;
-    const BrickOffsetLeft = 12;
-    const bricks = []
+  let paddleSensitibity = 2;
 
-    const brickStatus = {
-        ACTIVE:1, 
-        DESTROYED:0
+  /* VARIABLES DE LOS LADRILLOS */
+  const brickRowCount = 5;
+  const brickColumnCount = 12;
+  const brickWidth = 30;
+  const brickHeight = 14;
+  const brickPadding = 3;
+  const BrickOffsetTop = 80;
+  const BrickOffsetLeft = 12;
+  const bricks = [];
+
+  const brickStatus = {
+    ACTIVE: 1,
+    DESTROYED: 0,
+  };
+
+  for (let c = 0; c < brickColumnCount; c++) {
+    bricks[c] = [];
+    for (let r = 0; r < brickRowCount; r++) {
+      //calcula la posicion del ladrillo en pantalla
+      const brickX = c * (brickWidth + brickPadding) + BrickOffsetLeft;
+      const brickY = r * (brickHeight + brickPadding) + BrickOffsetTop;
+      //Asignar color aleatorio al ladrillo
+      const random = Math.floor(Math.random() * 8);
+      const randomHability = Math.floor(Math.random() * 10);
+      // guardamos la info de cada ladrillo
+      bricks[c][r] = {
+        x: brickX,
+        y: brickY,
+        status: brickStatus.ACTIVE,
+        color: random,
+        hability: randomHability,
+      };
     }
+  }
 
-    for(let c = 0; c < brickColumnCount; c++){
-        bricks[c]= []
-        for (let r = 0; r < brickRowCount; r++) {
-            //calcula la posicion del ladrillo en pantalla
-            const brickX = c * (brickWidth + brickPadding)+ 
-            BrickOffsetLeft
-            const brickY = r * (brickHeight + brickPadding)+ 
-            BrickOffsetTop
-            //Asignar color aleatorio al ladrillo
-            const random = Math.floor(Math.random() * 8)
-            // guardamos la info de cala ladrillo
-            bricks[c][r]= {
-                x: brickX,
-                y: brickY, 
-                status: brickStatus.ACTIVE,
-                color: random
-            }
-
-            
+  function drawBall() {
+    ctx.beginPath();
+    ctx.arc(x, y, ballRadius, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+  }
+  function drawPaddle() {
+    // ctx.fillStyle="#09f"
+    // ctx.fillRect(
+    //     paddleX,        //coordenada x
+    //     paddleY,        //coordenada y
+    //     paddleWidth,    //ancho
+    //     paddleHeight    //alto
+    // )
+    ctx.drawImage(
+      $sprite, //imagen
+      29, //clipX: coords de recorte
+      174, //clipY: coords de recorte
+      paddleWidth, //Tamaño del recorte
+      paddleHeight, //Tamaño del recorte
+      paddleX, //posicion x del dibujo
+      paddleY, //posicion y del dibujo
+      paddleWidth, //ancho x del dibujo
+      paddleHeight //alto y del dibujo
+    );
+  }
+  function drawBricks() {
+    for (let c = 0; c < brickColumnCount; c++) {
+      for (let r = 0; r < brickRowCount; r++) {
+        const currentBrick = bricks[c][r];
+        if (currentBrick.status == brickStatus.DESTROYED) {
+          continue;
         }
-    }
 
+        // ctx.fillStyle = "yellow"
+        ctx.rect(currentBrick.x, currentBrick.y, brickWidth, brickHeight);
+        ctx.stroke();
+        // ctx.fill()
 
-    function drawBall() {
-        ctx.beginPath()
-        ctx.arc(x, y, ballRadius, 0, Math.PI * 2)
-        ctx.fillStyle = "#fff"
-        ctx.fill()
+        const clipX = 30 + currentBrick.color * 16;
+        // 16 es el tamaño de ancho del sprite
+        // y 30 el ancho hasta el primer elemento
 
-    }
-    function drawPaddle() {
-        // ctx.fillStyle="#09f"
-        // ctx.fillRect(
-        //     paddleX,        //coordenada x
-        //     paddleY,        //coordenada y
-        //     paddleWidth,    //ancho
-        //     paddleHeight    //alto
-        // )
         ctx.drawImage(
-            $sprite,        //imagen
-            29,             //clipX: coords de recorte
-            174,            //clipY: coords de recorte
-            paddleWidth,    //Tamaño del recorte
-            paddleHeight,   //Tamaño del recorte
-            paddleX,        //posicion x del dibujo
-            paddleY,        //posicion y del dibujo
-            paddleWidth,    //ancho x del dibujo
-            paddleHeight,   //alto y del dibujo
-
-        )
+          $sprite,
+          clipX,
+          83,
+          15,
+          7,
+          currentBrick.x,
+          currentBrick.y,
+          brickWidth,
+          brickHeight
+        );
+      }
     }
-    function drawBricks() {
-        for(let c = 0; c < brickColumnCount; c++){
-            for (let r = 0; r < brickRowCount; r++) {
-                const currentBrick =  bricks[c][r]
-                if(currentBrick.status == brickStatus.DESTROYED){
-                    continue;
-                }
-                
-                
-                // ctx.fillStyle = "yellow"
-                ctx.rect(
-                    currentBrick.x,
-                    currentBrick.y,
-                    brickWidth,
-                    brickHeight
-                )
-                ctx.stroke()
-                // ctx.fill()
-
-                const clipX = 30 + (currentBrick.color * 16) 
-                // 16 es el tamaño de ancho del sprite
-                // y 30 el ancho hasta el primer elemento
-                
-                ctx.drawImage(
-                    $sprite,
-                    clipX,
-                    83,
-                    15,
-                    7,
-                    currentBrick.x,
-                    currentBrick.y,
-                    brickWidth,
-                    brickHeight
-                )
-            }
+  }
+  function collisionDetection() {
+    for (let c = 0; c < brickColumnCount; c++) {
+      for (let r = 0; r < brickRowCount; r++) {
+        const currentBrick = bricks[c][r];
+        if (currentBrick.status == brickStatus.DESTROYED) {
+          continue;
         }
+
+        const isBallSameXAsBrick =
+          x > currentBrick.x && x < currentBrick.x + brickWidth;
+
+        const isBallSameYAsBrick =
+          y > currentBrick.y && y < currentBrick.y + brickHeight ;
+
+        if (isBallSameXAsBrick && isBallSameYAsBrick) {
+          dy = -dy;
+          counter++
+          currentBrick.status = brickStatus.DESTROYED;
+        }
+      }
     }
-    function collisionDetection() {
-        for(let c = 0; c < brickColumnCount; c++){
-            for (let r = 0; r < brickRowCount; r++) {
-                const currentBrick =  bricks[c][r]
-                if(currentBrick.status == brickStatus.DESTROYED){
-                    continue;
-                }
-
-                const isBallSameXAsBrick = 
-                    x>currentBrick.x && 
-                    x<currentBrick.x+brickWidth
-
-                const isBallSameYAsBrick = 
-                    y>currentBrick.y && 
-                    y<currentBrick.y+brickHeight
-
-                if (isBallSameXAsBrick && isBallSameYAsBrick) {
-                    dy = -dy;
-                    currentBrick.status = brickStatus.DESTROYED
-                }
-            }
-        }
+  }
+  function ballMovement() {
+    //rebotar bola en laterales
+    if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
+      dx = -dx;
     }
-    function ballMovement() {
-        //rebotar bola en laterales
-        if (
-            x + dx > canvas.width - ballRadius ||
-            x + dx < ballRadius
-        ) {
-            dx = -dx
-        }
-        //rebotar bola arriba
-        if ( y + dy < ballRadius ) {
-            dy = -dy
-        }
-        //bola abajo, pala o game over
-        const isBallSameAsPaddle = 
-        x>paddleX && 
-        x<paddleX+paddleWidth
-
-        const isBallTouchingPaddle = 
-        y>paddleY && 
-        y<paddleY+paddleHeight
-
-        if(isBallSameAsPaddle && isBallTouchingPaddle){
-            dy = -dy
-        }
-        else if ( y + dy > canvas.height - ballRadius ) {
-            console.log("Game Over");
-            reloadFix=true
-            document.location.reload()
-
-        }
-
-        x += dx
-        y += dy
+    //rebotar bola arriba
+    if (y + dy < ballRadius) {
+      dy = -dy;
     }
-    function paddleMovement() {
+    //bola abajo, pala o game over
+    const isBallSameAsPaddle = x > paddleX && x < paddleX + paddleWidth;
 
-        if(rightPressed & paddleX < canvas.width - paddleWidth ){
-            paddleX += paddleSensitibity;
-        }else if (leftPressed  & paddleX > 0 ){
-            paddleX -= paddleSensitibity;
-        }
+    const isBallTouchingPaddle = y > paddleY && y < paddleY + paddleHeight;
 
+    if (isBallSameAsPaddle && isBallTouchingPaddle) {
+      dy = -dy;
+    } else if (y + dy > canvas.height - ballRadius) {
+      console.log("Game Over");
+      pausedGame = true;
+      document.location.reload();
     }
-    function cleanCanvas() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    x += dx;
+    y += dy;
+  }
+  function paddleMovement() {
+    if (rightPressed & (paddleX < canvas.width - paddleWidth)) {
+      paddleX += paddleSensitibity;
+    } else if (leftPressed & (paddleX > 0)) {
+      paddleX -= paddleSensitibity;
     }
-    function initEvents() {
-        document.addEventListener("keydown",keyDownHandler)
-        document.addEventListener("keyup",keyUpHandler)
+  }
+  function cleanCanvas() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
 
-        function keyDownHandler(event) {
-            const {key}= event
-            if(key == "Right" || key == "ArrowRight"){
-                rightPressed = true
-            }else if (key == "Left" || key == "ArrowLeft"){
-                leftPressed = true
-            }
-        }
-        function keyUpHandler(event) {
-            const {key}= event
-            if(key == "Right" || key == "ArrowRight"){
-                rightPressed = false
-            }else if (key == "Left" || key == "ArrowLeft"){
-                leftPressed = false
-            }
-        }
+  function initEvents() {
+    document.addEventListener("keydown", keyDownHandler);
+    document.addEventListener("keyup", keyUpHandler);
 
+    function keyDownHandler(event) {
+      const { key } = event;
+      if (key == "Right" || key == "ArrowRight") {
+        rightPressed = true;
+      } else if (key == "Left" || key == "ArrowLeft") {
+        leftPressed = true;
+      }
+
+      if (key === "Escape") {
+        console.log({ pausedGame });
+        pausedGame = !pausedGame;
+        if (pausedGame === false) {
+          draw();
+        } else {
+          changePopupText("<h1>Paused Game</h1>");
+        }
+      }
     }
-    function draw() {
-        cleanCanvas()
-        //dibujar elementos
-        drawBall()
-        drawPaddle()
-        drawBricks()
-        //drawScore()
-
-        //colisiones y movimientos
-
-        collisionDetection()
-        ballMovement()
-        paddleMovement()
-        console.log("hola");
-        if (reloadFix){return}
-        if(bricks.filter(b=>b.find(f=>f.status == brickStatus.ACTIVE)  ).length == 0){
-            console.log("WIN!!!!!")
-            return;
-        }
-        window.requestAnimationFrame(draw)
+    function keyUpHandler(event) {
+      const { key } = event;
+      if (key == "Right" || key == "ArrowRight") {
+        rightPressed = false;
+      } else if (key == "Left" || key == "ArrowLeft") {
+        leftPressed = false;
+      }
     }
-    draw()
-    initEvents()
+  }
+  function changePopupText(innerHTML = "") {
+    let item = document.getElementById("gamePopup");
+    if (innerHTML) {
+      item.style.display = "block";
+    } else {
+      item.style.display = "none";
+    }
+    item.innerHTML = innerHTML;
+  }
+  function drawScore() {
+    let scoreItem = document.getElementById("score")
+ 
+    scoreItem.innerText = counter * 100
+  }
 
+  function draw() {
+    changePopupText();
+    cleanCanvas();
+    //dibujar elementos
+    drawBall();
+    drawPaddle();
+    drawBricks();
+    drawScore()
 
+    //colisiones y movimientos
+    collisionDetection();
+    ballMovement();
+    paddleMovement();
+
+    if (pausedGame) {
+      return;
+    }
+    if (
+      bricks.filter((b) => b.find((f) => f.status == brickStatus.ACTIVE))
+        .length == 0
+    ) {
+      changePopupText("You Win!");
+      pausedGame = true;
+    }
+    window.requestAnimationFrame(draw);
+  }
+
+  function startGame() {
+    draw();
+    initEvents();
+  }
 </script>
